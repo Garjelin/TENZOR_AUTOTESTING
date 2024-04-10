@@ -27,46 +27,41 @@ class SBISPage:
     def click_contacts_button(self):
         self.driver.find_element(*self.CONTACTS_BUTTON).click()
 
-    def wait_for_banner_image(self):
-        """Дождаться загрузки баннера"""
-        wait = WebDriverWait(self.driver, 20)
-        return wait.until(EC.visibility_of_element_located(self.BANNER_IMAGE))
-
-    def click_banner_image(self):
-        """Нажать на изображение баннера"""
-        self.wait_for_banner_image().click()
-        logging.info("Clicked on the banner")
-
-    def switch_to_new_tab(self):
-        """Переключиться на новую вкладку"""
-        initial_tabs = self.driver.window_handles
-        self.click_banner_image()
+    def find_banner_image(self):
+        return self.driver.find_element(*self.BANNER_IMAGE)
+    
+    def wait_for_new_tab_to_open(self, initial_tabs):
         wait = WebDriverWait(self.driver, 20)
         wait.until(EC.number_of_windows_to_be(len(initial_tabs) + 1))
-        all_tabs = self.driver.window_handles
-        new_tab = [tab for tab in all_tabs if tab not in initial_tabs][0]
+
+    def switch_to_new_tab_by_banner(self):
+        initial_tabs = self.driver.window_handles # get id all tabs before banner click
+        self.find_banner_image().click()
+        logging.info("Clicked on the banner")
+        self.wait_for_new_tab_to_open(initial_tabs)
+        all_tabs = self.driver.window_handles # get id all tabs after banner click
+        new_tab = [tab for tab in all_tabs if tab not in initial_tabs][0] # define new tab
         self.driver.switch_to.window(new_tab)
     
-    def wait_for_strength_in_people_block(self):
-        """Дождаться появления блока 'Сила в людях' c прокруткой страницы вниз"""
-        wait = WebDriverWait(self.driver, 20)
-        strength_in_people_block = wait.until(EC.visibility_of_element_located(self.STRENGTH_IN_PEOPLE_BLOCK))
-        # Прокрутка страницы до блока "Сила в людях"
-        self.driver.execute_script("arguments[0].scrollIntoView(true);", strength_in_people_block)
-        return strength_in_people_block
+    def find_for_strength_in_people_block(self):
+        return self.driver.find_element(*self.STRENGTH_IN_PEOPLE_BLOCK)
 
     def click_learn_more_link(self):
-        """Нажать на ссылку 'Подробнее'"""
-        self.wait_for_strength_in_people_block().find_element(*self.LEARN_MORE_LINK).click()
+        self.find_for_strength_in_people_block().find_element(*self.LEARN_MORE_LINK).click()
 
     def wait_for_work_section(self):
-        """Дождаться раздела 'Работаем'"""
         wait = WebDriverWait(self.driver, 20)
-        return wait.until(EC.visibility_of_element_located(self.WORK_SECTION))
-
-    def get_work_images(self):
-        """Получить список изображений в разделе 'Работаем'"""
-        return self.driver.find_elements(*self.WORK_IMAGES)
+        wait.until(EC.visibility_of_element_located(self.WORK_SECTION))
+    
+    def get_work_images_info(self):
+        images = self.driver.find_elements(*self.WORK_IMAGES)
+        info = []
+        for image in images:
+            name = image.get_attribute("alt")
+            width = image.get_attribute("width")
+            height = image.get_attribute("height")
+            info.append((name, width, height))
+        return info
     
 
 
@@ -85,72 +80,64 @@ def setup(request):
     yield
     driver.quit()
 
+@pytest.mark.usefixtures("setup")
+class TestTensorBanner:
+    def test_open_tensor_website_from_sbis(self, caplog):
+        caplog.set_level(logging.INFO)
+        try:
+            self.page.driver.get("https://sbis.ru/")
+            self.page.click_contacts_button()
+            logging.info("Clicked on 'Contacts' button")
+
+            assert self.page.find_banner_image().is_displayed()
+            logging.info("Banner is displayed")
+
+            self.page.switch_to_new_tab_by_banner()
+            assert self.page.driver.current_url == "https://tensor.ru/"
+            logging.info("URL verified: https://tensor.ru/")
+
+            assert self.page.find_for_strength_in_people_block().is_displayed()
+            logging.info("Block 'Strength in People' is displayed")
+
+            self.page.click_learn_more_link()
+            logging.info("Clicked on 'Learn more' link")
+            assert self.page.driver.current_url == "https://tensor.ru/about"
+            logging.info("URL verified: https://tensor.ru/about")
+
+            self.page.wait_for_work_section()
+            images_info = self.page.get_work_images_info()
+            logging.info(f"Number of images found: {len(images_info)}")
+
+            first_image_name, first_image_width, first_image_height = images_info[0]
+            for index, (name, width, height) in enumerate(images_info, start=1):
+                logging.info(f"Image {index}: Name = {name}, Width = {width}, Height = {height}")
+                assert width == first_image_width
+                assert height == first_image_height
+
+            logging.info("Sizes are equal")
+
+        except TimeoutException:
+            logging.error("Timeout waiting for the banner to load")
+            pytest.fail("Timeout waiting for the banner to load")
+
 # @pytest.mark.usefixtures("setup")
-# class TestTensorBanner:
-#     def test_open_tensor_website_from_sbis(self, caplog):
+# class TestSecondScenario:
+#     def test_check_region_and_partners(self, caplog):
 #         caplog.set_level(logging.INFO)
 #         self.page.driver.get("https://sbis.ru/")
 #         self.page.click_contacts_button()
 #         logging.info("Clicked on 'Contacts' button")
 
 #         try:
-#             self.page.wait_for_banner_image()
-#             logging.info("Banner loaded successfully")
+#             region_name = self.page.detect_region()
+#             assert region_name == "Тюменская обл."
+#             logging.info(f"Region verified: {region_name}")
 
-#             self.page.switch_to_new_tab()
-#             assert self.page.driver.current_url == "https://tensor.ru/"
-#             logging.info("URL verified: https://tensor.ru/")
-
-#             assert self.page.wait_for_strength_in_people_block().is_displayed()
-#             logging.info("Block 'Strength in People' is displayed")
-
-#             self.page.click_learn_more_link()
-#             logging.info("Clicked on 'Learn more' link")
-
-#             assert self.page.driver.current_url == "https://tensor.ru/about"
-#             logging.info("URL verified: https://tensor.ru/about")
-
-#             self.page.wait_for_work_section()
-#             images_work = self.page.get_work_images()
-#             logging.info(f"Number of images found: {len(images_work)}")
-
-#             first_image_size = images_work[0].size
-#             first_image_width = first_image_size['width']
-#             first_image_height = first_image_size['height']
-
-#             for index, image in enumerate(images_work, start=1):
-#                 image_size = image.size
-#                 image_width = image_size['width']
-#                 image_height = image_size['height']
-#                 logging.info(f"Image {index}: Width = {image_width}, Height = {image_height}")
-
-#                 assert image_width == first_image_width
-#                 assert image_height == first_image_height
-
-#             logging.info("Sizes are equal")
+#             partners_list = self.page.find_contact_list()
+#             assert len(partners_list) > 0
+#             logging.info(f"Number of partners found: {len(partners_list)}")
+#             logging.info("Partners list is displayed")
 
 #         except TimeoutException:
 #             logging.error("Timeout waiting for the banner to load")
 #             pytest.fail("Timeout waiting for the banner to load")
-
-@pytest.mark.usefixtures("setup")
-class TestSecondScenario:
-    def test_check_region_and_partners(self, caplog):
-        caplog.set_level(logging.INFO)
-        self.page.driver.get("https://sbis.ru/")
-        self.page.click_contacts_button()
-        logging.info("Clicked on 'Contacts' button")
-
-        try:
-            region_name = self.page.detect_region()
-            assert region_name == "Тюменская обл."
-            logging.info(f"Region verified: {region_name}")
-
-            partners_list = self.page.find_contact_list()
-            assert len(partners_list) > 0
-            logging.info(f"Number of partners found: {len(partners_list)}")
-            logging.info("Partners list is displayed")
-
-        except TimeoutException:
-            logging.error("Timeout waiting for the banner to load")
-            pytest.fail("Timeout waiting for the banner to load")
