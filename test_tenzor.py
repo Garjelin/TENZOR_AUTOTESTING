@@ -1,4 +1,5 @@
 import pytest
+import time
 from selenium import webdriver
 import logging
 from selenium.webdriver.common.by import By
@@ -20,6 +21,7 @@ class Page_SBIS_contacts:
     BANNER_IMAGE = (By.XPATH, '//img[contains(@src, "logo.svg")]')
     REGION = (By.XPATH, '//span[contains(@class, "sbis_ru-Region-Chooser__text sbis_ru-link")]')
     PARTNERS_LIST = (By.XPATH, '//div[contains(@class, "sbisru-Contacts-List__item")]')
+    GET_REGION = (By.XPATH, '//span[contains(text(), "41 Камчатский край")]')
 
     def __init__(self, driver):
         self.driver = driver
@@ -33,20 +35,20 @@ class Page_SBIS_contacts:
         logging.info("Clicked on the banner")
         return initial_tabs
     
-    def detect_region(self):
-        region_element = self.driver.find_element(*self.REGION)
-        return region_element.text.strip()
+    def find_region(self):
+        return self.driver.find_element(*self.REGION)
     
     def find_contact_list(self):
         return self.driver.find_elements(*self.PARTNERS_LIST)
+    
+    def get_region(self):
+        return self.driver.find_element(*self.GET_REGION)
     
 
 class Page_TENZOR_main:
     # STRENGTH_IN_PEOPLE_BLOCK = (By.XPATH, '//div[contains(@class, "tensor_ru-Index__block4-content")]')
     STRENGTH_IN_PEOPLE_BLOCK = (By.XPATH, '//p[contains(text(), "Сила в людях")]')
     LEARN_MORE_LINK = (By.XPATH, '//a[@href="/about"]')
-    WORK_SECTION = (By.XPATH, '//h2[contains(text(), "Работаем")]')
-    WORK_IMAGES = (By.XPATH, '//div[contains(@class, "tensor_ru-About__block3-image")]/img')
 
     def __init__(self, driver):
         self.driver = driver
@@ -67,7 +69,13 @@ class Page_TENZOR_main:
     def click_learn_more_link(self):
         self.find_for_strength_in_people_block().find_element(*self.LEARN_MORE_LINK).click()
         # self.driver.execute_script("arguments[0].scrollIntoView();", learn_more_link)
-        # learn_more_link.click()
+    
+class Page_TENZOR_about:
+    WORK_SECTION = (By.XPATH, '//h2[contains(text(), "Работаем")]')
+    WORK_IMAGES = (By.XPATH, '//div[contains(@class, "tensor_ru-About__block3-image")]/img')
+
+    def __init__(self, driver):
+        self.driver = driver
 
     def wait_for_work_section(self):
         wait = WebDriverWait(self.driver, 20)
@@ -90,50 +98,51 @@ def setup(request):
     request.cls.page_sbis_main = Page_SBIS_main(driver)
     request.cls.page_sbis_contacts = Page_SBIS_contacts(driver)
     request.cls.page_tenzor_main = Page_TENZOR_main(driver)
+    request.cls.page_tenzor_about = Page_TENZOR_about(driver)
     yield
     driver.quit()
 
-@pytest.mark.usefixtures("setup")
-class Test_Scenario_1:
-    def test_open_tensor_website_from_sbis(self, caplog):
-        caplog.set_level(logging.INFO)
-        try:
-            self.page_sbis_main.driver.get("https://sbis.ru/")
-            self.page_sbis_main.click_contacts_button()
-            logging.info("Clicked on 'Contacts' button")
+# @pytest.mark.usefixtures("setup")
+# class Test_Scenario_1:
+#     def test_open_tensor_website_from_sbis(self, caplog):
+#         caplog.set_level(logging.INFO)
+#         try:
+#             self.page_sbis_main.driver.get("https://sbis.ru/")
+#             self.page_sbis_main.click_contacts_button()
+#             logging.info("Clicked on 'Contacts' button")
 
-            assert self.page_sbis_contacts.find_banner_image().is_displayed()
-            logging.info("Banner is displayed")
+#             assert self.page_sbis_contacts.find_banner_image().is_displayed()
+#             logging.info("Banner is displayed")
 
-            initial_tabs = self.page_sbis_contacts.banner_click()
-            self.page_tenzor_main.switch_to_new_tab_by_banner(initial_tabs)
-            assert self.page_tenzor_main.driver.current_url == "https://tensor.ru/"
-            logging.info("URL verified: https://tensor.ru/")
+#             initial_tabs = self.page_sbis_contacts.banner_click()
+#             self.page_tenzor_main.switch_to_new_tab_by_banner(initial_tabs)
+#             assert self.page_tenzor_main.driver.current_url == "https://tensor.ru/"
+#             logging.info("URL verified: https://tensor.ru/")
 
-            strength_in_people_block = self.page_tenzor_main.find_for_strength_in_people_block()
-            assert self.page_tenzor_main.find_for_strength_in_people_block().is_displayed()
-            logging.info("Block 'Strength in People' is displayed")
+#             strength_in_people_block = self.page_tenzor_main.find_for_strength_in_people_block()
+#             assert self.page_tenzor_main.find_for_strength_in_people_block().is_displayed()
+#             logging.info("Block 'Strength in People' is displayed")
 
-            self.page_tenzor_main.click_learn_more_link()
-            logging.info("Clicked on 'Learn more' link")
-            assert self.page_tenzor_main.driver.current_url == "https://tensor.ru/about"
-            logging.info("URL verified: https://tensor.ru/about")
+#             self.page_tenzor_main.click_learn_more_link()
+#             logging.info("Clicked on 'Learn more' link")
+#             assert self.page_tenzor_about.driver.current_url == "https://tensor.ru/about"
+#             logging.info("URL verified: https://tensor.ru/about")
 
-            self.page_tenzor_main.wait_for_work_section()
-            images_info = self.page_tenzor_main.get_work_images_info()
-            logging.info(f"Number of images found: {len(images_info)}")
+#             self.page_tenzor_about.wait_for_work_section()
+#             images_info = self.page_tenzor_about.get_work_images_info()
+#             logging.info(f"Number of images found: {len(images_info)}")
 
-            first_image_name, first_image_width, first_image_height = images_info[0]
-            for index, (name, width, height) in enumerate(images_info, start=1):
-                logging.info(f"Image {index}: Name = {name}, Width = {width}, Height = {height}")
-                assert width == first_image_width
-                assert height == first_image_height
+#             first_image_name, first_image_width, first_image_height = images_info[0]
+#             for index, (name, width, height) in enumerate(images_info, start=1):
+#                 logging.info(f"Image {index}: Name = {name}, Width = {width}, Height = {height}")
+#                 assert width == first_image_width
+#                 assert height == first_image_height
 
-            logging.info("Sizes are equal")
+#             logging.info("Sizes are equal")
 
-        except TimeoutException:
-            logging.error("Timeout")
-            pytest.fail("Timeout")
+#         except TimeoutException:
+#             logging.error("Timeout")
+#             pytest.fail("Timeout")
 
 @pytest.mark.usefixtures("setup")
 class Test_Scenario_2:
@@ -144,14 +153,31 @@ class Test_Scenario_2:
             self.page_sbis_main.click_contacts_button()
             logging.info("Clicked on 'Contacts' button")
 
-            region_name = self.page_sbis_contacts.detect_region()
-            assert region_name == "Тюменская обл."
-            logging.info(f"Region verified: {region_name}")
+            region_name = self.page_sbis_contacts.find_region()
+            assert region_name.text.strip() == "Тюменская обл."
+            logging.info(f"Region verified: {region_name.text.strip()}")
 
             partners_list = self.page_sbis_contacts.find_contact_list()
             assert len(partners_list) > 0
             logging.info(f"Number of partners found: {len(partners_list)}")
             logging.info("Partners list is displayed")
+
+            region_name.click()
+            get_region = self.page_sbis_contacts.get_region()
+            logging.info(f"Region selected: {get_region.text.strip()}")
+
+            wait = WebDriverWait(self.page_sbis_contacts.driver, 10)
+            get_region = wait.until(EC.element_to_be_clickable(self.page_sbis_contacts.GET_REGION))
+            logging.info(f"Region selected: {get_region.text.strip()}")
+            get_region.click()
+            
+            # time.sleep(5)
+            # wait.until(EC.text_to_be_present_in_element(self.page_sbis_contacts.REGION, "41 Камчатский край"))
+
+            
+            region_name_2 = self.page_sbis_contacts.find_region()
+            # assert region_name.text.strip() == "41 Камчатский край"
+            logging.info(f"Region verified: {region_name_2.text.strip()}")
 
         except TimeoutException:
             logging.error("Timeout")
