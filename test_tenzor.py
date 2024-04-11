@@ -7,8 +7,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
+from selenium.webdriver.common.action_chains import ActionChains
+
 class Page_SBIS_main:
     CONTACTS_BUTTON = (By.XPATH, '//a[@href="/contacts"]')
+    DOWNLOAD_LOCAL_VERS_BUTTON = (By.XPATH, '//a[@href="/download"]')
+    CLOSE_COOCIE_AGREEMENT_BUTTON = (By.XPATH, '//div[contains(@class, "sbis_ru-CookieAgreement__close")]')
 
     def __init__(self, driver):
         self.driver = driver
@@ -16,12 +20,18 @@ class Page_SBIS_main:
     def click_contacts_button(self):
         self.driver.find_element(*self.CONTACTS_BUTTON).click()
 
+    def click_close_coocie_agreements_button(self):
+        return self.driver.find_element(*self.CLOSE_COOCIE_AGREEMENT_BUTTON).click()
+
+    def click_download_local_vers_button(self):
+        return self.driver.find_element(*self.DOWNLOAD_LOCAL_VERS_BUTTON).click()
+
 
 class Page_SBIS_contacts:
     BANNER_IMAGE = (By.XPATH, '//img[contains(@src, "logo.svg")]')
     REGION = (By.XPATH, '//span[contains(@class, "sbis_ru-Region-Chooser__text sbis_ru-link")]')
-    PARTNERS_LIST = (By.XPATH, '//div[contains(@class, "sbisru-Contacts-List__item")]')
-    GET_REGION = (By.XPATH, '//span[contains(text(), "41 Камчатский край")]')
+    PARTNERS_LIST = (By.XPATH, '//div[contains(@class, "sbisru-Contacts-List__name")]')
+    REGION_IN_LIST = (By.XPATH, '//span[@title="Камчатский край"]')
 
     def __init__(self, driver):
         self.driver = driver
@@ -38,11 +48,12 @@ class Page_SBIS_contacts:
     def find_region(self):
         return self.driver.find_element(*self.REGION)
     
-    def find_contact_list(self):
-        return self.driver.find_elements(*self.PARTNERS_LIST)
+    def find_contact_list_with_titles(self):
+        contacts_with_titles = self.driver.find_elements(*self.PARTNERS_LIST)
+        return [contact.get_attribute("title") for contact in contacts_with_titles]
     
-    def get_region(self):
-        return self.driver.find_element(*self.GET_REGION)
+    def find_new_region_in_list(self):
+        return self.driver.find_element(*self.REGION_IN_LIST)
     
 
 class Page_TENZOR_main:
@@ -104,12 +115,15 @@ def setup(request):
 
 # @pytest.mark.usefixtures("setup")
 # class Test_Scenario_1:
-#     def test_open_tensor_website_from_sbis(self, caplog):
+#     def test_scenario_1(self, caplog):
 #         caplog.set_level(logging.INFO)
 #         try:
+#             logging.info("")
+#             logging.info("******SCENARIO_1******")
+#             logging.info("")
 #             self.page_sbis_main.driver.get("https://sbis.ru/")
 #             self.page_sbis_main.click_contacts_button()
-#             logging.info("Clicked on 'Contacts' button")
+#             logging.info("Clicked on 'Контакты' button")
 
 #             assert self.page_sbis_contacts.find_banner_image().is_displayed()
 #             logging.info("Banner is displayed")
@@ -121,10 +135,10 @@ def setup(request):
 
 #             strength_in_people_block = self.page_tenzor_main.find_for_strength_in_people_block()
 #             assert self.page_tenzor_main.find_for_strength_in_people_block().is_displayed()
-#             logging.info("Block 'Strength in People' is displayed")
+#             logging.info("Block 'Сила в людях' is displayed")
 
 #             self.page_tenzor_main.click_learn_more_link()
-#             logging.info("Clicked on 'Learn more' link")
+#             logging.info("Clicked on 'Подробнее' link")
 #             assert self.page_tenzor_about.driver.current_url == "https://tensor.ru/about"
 #             logging.info("URL verified: https://tensor.ru/about")
 
@@ -134,7 +148,7 @@ def setup(request):
 
 #             first_image_name, first_image_width, first_image_height = images_info[0]
 #             for index, (name, width, height) in enumerate(images_info, start=1):
-#                 logging.info(f"Image {index}: Name = {name}, Width = {width}, Height = {height}")
+#                 logging.info(f"Image {index}: Name = '{name}', Width = {width}, Height = {height}")
 #                 assert width == first_image_width
 #                 assert height == first_image_height
 
@@ -144,41 +158,79 @@ def setup(request):
 #             logging.error("Timeout")
 #             pytest.fail("Timeout")
 
+# @pytest.mark.usefixtures("setup")
+# class Test_Scenario_2:
+#     def test_scenario_2(self, caplog):
+#         caplog.set_level(logging.INFO)
+#         try:
+#             logging.info("")
+#             logging.info("******SCENARIO_2******")
+#             logging.info("")
+#             self.page_sbis_main.driver.get("https://sbis.ru/")
+#             self.page_sbis_main.click_contacts_button()
+#             logging.info("Clicked on 'Контакты' button")
+
+#             region_name = self.page_sbis_contacts.find_region()
+#             assert region_name.text.strip() == "Тюменская обл."
+#             logging.info(f"Region verified: '{region_name.text.strip()}'")
+
+#             partners_list_titles = self.page_sbis_contacts.find_contact_list_with_titles()
+#             assert len(partners_list_titles) > 0
+#             logging.info(f"Number of partners found: {len(partners_list_titles)}")
+#             logging.info("Partners list is displayed:")
+#             for index, partner_title in enumerate(partners_list_titles, start=1):
+#                 logging.info(f"         Partner {index}: '{partner_title}'")
+
+#             region_name.click() # open region list
+#             new_region = self.page_sbis_contacts.find_new_region_in_list()
+#             logging.info(f"Region selected: '{new_region.text.strip()}'")
+           
+#             # simple method click() doesn't work
+#             # click using a mouse
+#             action_chains = ActionChains(self.page_sbis_contacts.driver)
+#             action_chains.move_to_element(new_region).click().perform()
+#             # new region doesn't appear without delay
+#             wait = WebDriverWait(self.page_sbis_contacts.driver, 10)
+#             wait.until(EC.text_to_be_present_in_element(self.page_sbis_contacts.REGION, "Камчатский край"))
+#             new_region = self.page_sbis_contacts.find_region()
+#             assert region_name.text.strip() == "Камчатский край"
+#             logging.info(f"Region verified: '{new_region.text.strip()}'")
+#             # time.sleep(5)
+
+#             partners_list_titles = self.page_sbis_contacts.find_contact_list_with_titles()
+#             assert len(partners_list_titles) > 0
+#             logging.info(f"Number of partners found: {len(partners_list_titles)}")
+#             logging.info("Partners list is displayed:")
+#             for index, partner_title in enumerate(partners_list_titles, start=1):
+#                 logging.info(f"         Partner {index}: '{partner_title}'")
+
+#             assert "41-kamchatskij-kraj" in self.page_sbis_contacts.driver.current_url
+#             logging.info("URL contains '41-kamchatskij-kraj'")
+            
+
+#         except TimeoutException:
+#             logging.error("Timeout")
+#             pytest.fail("Timeout")
+
 @pytest.mark.usefixtures("setup")
-class Test_Scenario_2:
-    def test_check_region_and_partners(self, caplog):
+class Test_Scenario_3:
+    def test_scenario_3(self, caplog):
         caplog.set_level(logging.INFO)
         try:
+            logging.info("")
+            logging.info("******SCENARIO_3******")
+            logging.info("")
             self.page_sbis_main.driver.get("https://sbis.ru/")
-            self.page_sbis_main.click_contacts_button()
-            logging.info("Clicked on 'Contacts' button")
-
-            region_name = self.page_sbis_contacts.find_region()
-            assert region_name.text.strip() == "Тюменская обл."
-            logging.info(f"Region verified: {region_name.text.strip()}")
-
-            partners_list = self.page_sbis_contacts.find_contact_list()
-            assert len(partners_list) > 0
-            logging.info(f"Number of partners found: {len(partners_list)}")
-            logging.info("Partners list is displayed")
-
-            region_name.click()
-            get_region = self.page_sbis_contacts.get_region()
-            logging.info(f"Region selected: {get_region.text.strip()}")
-
-            wait = WebDriverWait(self.page_sbis_contacts.driver, 10)
-            get_region = wait.until(EC.element_to_be_clickable(self.page_sbis_contacts.GET_REGION))
-            logging.info(f"Region selected: {get_region.text.strip()}")
-            get_region.click()
             
-            # time.sleep(5)
-            # wait.until(EC.text_to_be_present_in_element(self.page_sbis_contacts.REGION, "41 Камчатский край"))
+            self.page_sbis_main.click_close_coocie_agreements_button()
+            self.page_sbis_main.click_download_local_vers_button()
+            logging.info("Clicked on 'Скачать локальные версии' button")
+
+            assert "sbis.ru/download" in self.page_sbis_contacts.driver.current_url
+            logging.info("URL verified: https://sbis.ru/download")
 
             
-            region_name_2 = self.page_sbis_contacts.find_region()
-            # assert region_name.text.strip() == "41 Камчатский край"
-            logging.info(f"Region verified: {region_name_2.text.strip()}")
-
+            time.sleep(5)
         except TimeoutException:
             logging.error("Timeout")
             pytest.fail("Timeout")
