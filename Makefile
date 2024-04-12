@@ -13,3 +13,4 @@ clean:
 	rm -rf __pycache__
 	rm -rf assets
 	rm -rf report.html
+	rm -rf *.exe
