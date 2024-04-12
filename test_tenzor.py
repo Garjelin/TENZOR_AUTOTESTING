@@ -32,6 +32,10 @@ class Page_SBIS_main:
         wait = WebDriverWait(self.driver, 10)
         wait.until(EC.text_to_be_present_in_element(where, what))
 
+    def delay_contacts_button_until_be_clickable(self):
+        wait = WebDriverWait(self.driver, 10) 
+        return wait.until(EC.element_to_be_clickable(self.CONTACTS_BUTTON))
+
     def find_contacts_button(self):
         return self.driver.find_element(*self.CONTACTS_BUTTON)
 
@@ -169,7 +173,8 @@ class Test_Scenario_1:
 
             self.page_sbis_main.driver.get("https://sbis.ru/")
             
-            contacts_button = self.page_sbis_main.find_contacts_button()
+            # contacts_button = self.page_sbis_main.find_contacts_button()
+            contacts_button = self.page_sbis_main.delay_contacts_button_until_be_clickable()
             assert contacts_button.is_displayed()
             contacts_button.click()
             logging.info("Clicked on 'Контакты' button")
